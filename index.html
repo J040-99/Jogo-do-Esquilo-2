@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo do Esquilo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: url('/api/placeholder/1920/1080') center/cover fixed;
+        }
+        
+        .main-container {
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 90%;
+        }
+
+        .game-container {
+            text-align: center;
+        }
+
+        .title-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .title-image {
+            width: 80px;
+            height: 80px;
+            animation: squirrelBounce 2s infinite ease-in-out;
+        }
+
+        .cups-container {
+            display: flex;
+            gap: 0px;
+            margin: 5px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .cup {
+            width: 100px;
+            height: 150px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            background: url('copo.png') center/contain no-repeat;
+            position: relative;
+        }
+
+        .cup.selected {
+            transform: translateY(-10px);
+        }
+
+        .cup.move {
+            animation: cupMove 1s ease;
+        }
+
+        .cup:hover {
+            transform: translateY(-10px);
+        }
+
+        .score-board {
+            margin: 20px auto;
+            font-size: 24px;
+            color: #333;
+            background-color: #ffffff;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            max-width: 300px;
+        }
+
+        .message {
+            margin: 20px auto;
+            font-size: 20px;
+            color: #333;
+            min-height: 30px;
+            background-color: #ffffff;
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 400px;
+        }
+
+        button {
+            font-size: 18px;
+            padding: 10px 30px;
+            background-color: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #ff6666;
+            transform: translateY(-2px);
+        }
+
+        h1 {
+            color: #333;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            margin: 0;
+            font-size: 2.5em;
+        }
+
+        @keyframes squirrelBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        @keyframes cupMove {
+            0% { transform: translateX(0); }
+            50% { transform: translateX(15px); }
+            100% { transform: translateX(0); }
+        }
+
+        @media (max-width: 600px) {
+            .main-container {
+                padding: 15px;
+                width: 95%;
+            }
+
+            .cup {
+                width: 80px;
+                height: 120px;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .title-image {
+                width: 60px;
+                height: 60px;
+            }
+
+            .score-board {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="game-container">
+            <div class="title-container">
+                <h1>Jogo do Esquilo</h1>
+                <img src="esquilo.png" alt="Esquilo" class="title-image">
+            </div>
+            <div class="score-board">
+                Pontuação: <span id="score">0</span><br>
+                Nível: <span id="level">1</span><br>
+                Vidas: <span id="lives">10</span>
+            </div>
+            <div class="cups-container" id="cupsContainer"></div>
+            <div class="message" id="message"></div>
+            <button onclick="startGame()">Novo Jogo</button>
+        </div>
+    </div>
+
+    <script>
+        let score = 0;
+        let level = 1;
+        let squirrelPosition = 0;
+        let numberOfCups = 3;
+        let canPlay = true;
+        let lives = 10;
+        let currentScore = 0;
+
+        const correctSound = new Audio('/api/correct.mp3');
+        const wrongSound = new Audio('/api/wrong.mp3');
+
+        function createCups() {
+            const container = document.getElementById('cupsContainer');
+            container.innerHTML = '';
+            
+            for (let i = 0; i < numberOfCups; i++) {
+                const cup = document.createElement('div');
+                cup.className = 'cup';
+                cup.onclick = () => checkGuess(i);
+                container.appendChild(cup);
+            }
+        }
+
+        function moveCups() {
+            if (!canPlay) return;
+
+            const cups = document.querySelectorAll('.cup');
+            cups.forEach(cup => cup.classList.add('move'));
+
+            setTimeout(() => cups.forEach(cup => cup.classList.remove('move')), 1000);
+
+            let newPosition;
+            do {
+                newPosition = Math.floor(Math.random() * numberOfCups);
+            } while (newPosition === squirrelPosition);
+            
+            squirrelPosition = newPosition;
+        }
+
+        function updateLevel() {
+            if (currentScore >= 10) { // Subir de nível com apenas 10 pontos
+                level++;
+                currentScore = 0;
+                lives = 10; // Restaurar vidas para 10
+                document.getElementById('lives').textContent = lives;
+
+                if (numberOfCups < 10) {
+                    numberOfCups++;
+                }
+
+                document.getElementById('level').textContent = level;
+                document.getElementById('message').textContent = `Parabéns! Você alcançou o nível ${level}!`;
+                setTimeout(() => {
+                    document.getElementById('message').textContent = 'Encontre o esquilo!';
+                }, 1500);
+
+                createCups(); // Atualizar o número de copos na tela
+            }
+        }
+
+        function checkGuess(cupIndex) {
+            if (!canPlay) return;
+        
+            const selectedCup = document.querySelectorAll('.cup')[cupIndex];
+            selectedCup.classList.add('selected');
+        
+            setTimeout(() => selectedCup.classList.remove('selected'), 1000);
+        
+            if (cupIndex === squirrelPosition) {
+                correctSound.play();
+                const points = (10 * level) + lives; // Novo cálculo de pontos
+                score += points;
+                currentScore += points;
+                document.getElementById('score').textContent = score;
+                document.getElementById('message').textContent = 'Parabéns! Você encontrou o esquilo!';
+
+                updateLevel();
+        
+                setTimeout(() => {
+                    squirrelPosition = Math.floor(Math.random() * numberOfCups);
+                    document.getElementById('message').textContent = 'Encontre o esquilo!';
+                }, 1500);
+            } else {
+                wrongSound.play();
+                lives--;
+                document.getElementById('lives').textContent = lives;
+                
+                if (lives <= 0) {
+                    document.getElementById('message').textContent = `Game Over! Pontuação final: ${score}`;
+                    canPlay = false;
+                    sendScore(); // Chamar a função para enviar a pontuação
+                } else {
+                    document.getElementById('message').textContent = `Errou! Você tem ${lives} vidas restantes. O esquilo se moveu!`;
+                    moveCups();
+                }
+            }
+        }
+
+        async function sendScore() {
+            try {
+                const response = await fetch('http://localhost:3000/api/scores', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ score, level })
+                });
+        
+                if (!response.ok) {
+                    throw new Error('Falha ao enviar a pontuação');
+                }
+        
+                const data = await response.json();
+                console.log(data);
+            } catch (error) {
+                console.error('Erro ao enviar a pontuação:', error);
+            }
+        }
+
+        function startGame() {
+            score = 0;
+            currentScore = 0;
+            level = 1;
+            numberOfCups = 3;
+            lives = 10;
+            canPlay = true;
+            
+            document.getElementById('score').textContent = score;
+            document.getElementById('level').textContent = level;
+            document.getElementById('lives').textContent = lives;
+            document.getElementById('message').textContent = 'Encontre o esquilo!';
+            
+            createCups();
+            squirrelPosition = Math.floor(Math.random() * numberOfCups);
+        }
+
+        window.onload = startGame;
+    </script>
+</body>
+</html>
